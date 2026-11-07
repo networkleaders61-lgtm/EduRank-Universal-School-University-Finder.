@@ -2,8 +2,9 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EduRank - Global & Local School Discovery Platform</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EduRank - Free Open School & University Finder</title>
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -12,493 +13,425 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: {
+                        edurank: {
                             bg: '#0f172a',
-                            panel: '#1e293b',
-                            card: '#334155',
-                            border: '#475569',
+                            card: '#1e293b',
+                            cardHover: '#334155',
+                            border: '#334155',
                             accent: '#3b82f6',
-                            emerald: '#10b981'
+                            textMuted: '#94a3b8'
                         }
                     }
                 }
             }
         }
     </script>
-    <!-- FontAwesome CDN -->
+    
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet.js for Interactive Maps -->
+    
+    <!-- Leaflet.js (Free OpenStreetMap Engine) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase Web SDK (v9 Compat - Works out of the box in single HTML files) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        html, body {
+            height: 100dvh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #leafletMap {
+            height: 100%;
+            width: 100%;
+            border-radius: 1rem;
+            z-index: 10;
+        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 9999px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
-        #map { height: 100%; min-height: 380px; border-radius: 1rem; z-index: 10; }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col">
+<body class="bg-edurank-bg text-gray-100 font-sans h-[100dvh] w-screen flex flex-col overflow-hidden">
 
-    <!-- NAVBAR -->
-    <header class="bg-slate-800/80 backdrop-blur-md border-b border-slate-700 sticky top-0 z-30 px-6 py-3.5 flex items-center justify-between">
+    <!-- NAVBAR HEADER -->
+    <header class="h-16 border-b border-edurank-border bg-slate-900/80 backdrop-blur-md px-4 md:px-6 flex items-center justify-between flex-shrink-0 z-30">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 flex items-center justify-center text-white text-xl font-black shadow-lg">E</div>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-lg">E</div>
             <div>
-                <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">EduRank</h1>
-                <p class="text-[10px] text-gray-400 font-medium">Smart School & University Decision Platform</p>
+                <h1 class="text-base md:text-lg font-bold text-white tracking-wide leading-tight">EduRank</h1>
+                <p class="text-[10px] text-emerald-400 font-medium">Free Live Database & Map Platform</p>
             </div>
         </div>
+
         <div class="flex items-center gap-3">
-            <button id="openCompareBtn" class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition">
-                <i class="fa-solid fa-code-compare"></i>
-                <span>Compare (<span id="compareCount">0</span>)</span>
+            <button id="openAddModalBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-xl text-xs md:text-sm font-semibold transition flex items-center gap-1.5 shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>Submit Fee / Info</span>
             </button>
         </div>
     </header>
 
-    <!-- HERO SEARCH HEADER -->
-    <section class="bg-slate-800 border-b border-slate-700 p-6">
-        <div class="max-w-7xl mx-auto space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div class="relative md:col-span-2">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400 text-sm"></i>
-                    <input type="text" id="searchInput" placeholder="Search school name, location, or curriculum..." class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-blue-500 outline-none text-sm text-white placeholder-gray-400">
-                </div>
-                <div>
-                    <select id="countryFilter" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-blue-500 outline-none text-sm text-white">
-                        <option value="ALL">Global / All Regions</option>
-                        <option value="Nepal">Nepal (Kathmandu Valley)</option>
-                        <option value="USA">United States</option>
-                        <option value="UK">United Kingdom</option>
-                    </select>
-                </div>
-                <div>
-                    <select id="levelFilter" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-blue-500 outline-none text-sm text-white">
-                        <option value="ALL">All Academic Levels</option>
-                        <option value="Primary/Secondary">Primary & High School</option>
-                        <option value="University">Universities</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- FINANCIAL & CLASS SIZE FILTERS -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-xs">
-                <div>
-                    <div class="flex justify-between text-gray-300 font-medium mb-1">
-                        <span>Max Annual Tuition:</span>
-                        <span id="maxFeeDisplay" class="text-blue-400 font-bold">$15,000 / Rs. 15L</span>
-                    </div>
-                    <input type="range" id="feeSlider" min="500" max="60000" step="500" value="60000" class="w-full accent-blue-500">
-                </div>
-                <div>
-                    <div class="flex justify-between text-gray-300 font-medium mb-1">
-                        <span>Max Class Size:</span>
-                        <span id="maxClassDisplay" class="text-emerald-400 font-bold">40 Students</span>
-                    </div>
-                    <input type="range" id="classSlider" min="15" max="45" step="1" value="45" class="w-full accent-emerald-500">
-                </div>
-                <div class="flex items-end">
-                    <button id="resetFiltersBtn" class="w-full py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-gray-200 font-semibold transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-rotate-left"></i> Reset Filters
-                    </button>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- MAIN DASHBOARD CONTENT -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden p-3 md:p-5 gap-4 max-w-[1600px] w-full mx-auto">
         
-        <!-- LEFT LISTING COLUMN (7 Cols) -->
-        <section class="lg:col-span-7 flex flex-col space-y-4">
-            <div class="flex justify-between items-center px-1">
-                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Matching Institutions (<span id="resultCount">0</span>)</span>
-                <div class="flex items-center gap-2 text-xs">
-                    <span class="text-gray-400">Sort By:</span>
-                    <select id="sortBySelect" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white outline-none">
-                        <option value="rank">Top Ranked</option>
-                        <option value="feeAsc">Tuition: Low to High</option>
-                        <option value="feeDesc">Tuition: High to Low</option>
-                        <option value="rating">Highest Rating</option>
-                    </select>
+        <!-- LEFT PANEL: FILTERS & SCHOOL CARDS -->
+        <section class="lg:col-span-7 flex flex-col h-full overflow-hidden space-y-3">
+            
+            <!-- SEARCH AND FILTER CONTROLS -->
+            <div class="bg-edurank-card border border-edurank-border p-3.5 md:p-4 rounded-2xl space-y-3 flex-shrink-0 shadow-sm">
+                <!-- Search Box -->
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </span>
+                    <input type="text" id="searchInput" placeholder="Search school name, city, or curriculum..." class="w-full pl-9 pr-3.5 py-2 bg-slate-900/90 border border-edurank-border rounded-xl text-xs md:text-sm outline-none text-white focus:border-blue-500 transition placeholder-gray-500">
+                </div>
+
+                <!-- Sliders Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <!-- Fee Slider -->
+                    <div class="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-edurank-border/50">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400 font-medium"><i class="fa-solid fa-sack-dollar text-blue-400 mr-1"></i>Max Annual Tuition:</span>
+                            <span id="feeDisplay" class="text-blue-400 font-bold">$10,000</span>
+                        </div>
+                        <input type="range" id="feeSlider" min="500" max="10000" step="250" value="10000" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+
+                    <!-- Class Size Slider -->
+                    <div class="space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-edurank-border/50">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400 font-medium"><i class="fa-solid fa-users text-emerald-400 mr-1"></i>Max Class Size:</span>
+                            <span id="classDisplay" class="text-emerald-400 font-bold">50 Students</span>
+                        </div>
+                        <input type="range" id="classSlider" min="10" max="50" step="1" value="50" class="w-full accent-emerald-500 cursor-pointer">
+                    </div>
                 </div>
             </div>
 
-            <!-- SCHOOL CARDS CONTAINER -->
-            <div id="schoolList" class="space-y-4 overflow-y-auto max-h-[75vh] pr-1"></div>
+            <!-- DYNAMIC SCHOOL CARDS LIST CONTAINER -->
+            <div id="schoolList" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <!-- Dynamically populated from Firestore or Local Cache -->
+            </div>
         </section>
 
-        <!-- RIGHT MAP & QUICK ANALYTICS COLUMN (5 Cols) -->
-        <section class="lg:col-span-5 flex flex-col space-y-4">
-            <div class="bg-slate-800 p-3 rounded-2xl border border-slate-700 flex flex-col h-full">
-                <div class="flex items-center justify-between mb-3 px-2">
-                    <h2 class="text-sm font-bold text-gray-200 flex items-center gap-2">
-                        <i class="fa-solid fa-map-location-dot text-blue-400"></i> Interactive Radius & Location Map
-                    </h2>
-                    <span class="text-[11px] text-gray-400">Kathmandu & Global Pins</span>
-                </div>
-                <div class="flex-1 min-h-[400px]">
-                    <div id="map"></div>
-                </div>
+        <!-- RIGHT PANEL: INTERACTIVE LEAFLET MAP -->
+        <section class="lg:col-span-5 h-[300px] lg:h-full flex flex-col bg-edurank-card border border-edurank-border rounded-2xl p-3 flex-shrink-0 relative">
+            <div class="flex justify-between items-center mb-2 px-1 flex-shrink-0">
+                <span class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-map-location-dot text-red-400"></i> OpenStreetMap View
+                </span>
+                <span id="schoolCountBadge" class="text-[10px] bg-blue-500/20 text-blue-300 px-2.5 py-0.5 rounded-full font-medium border border-blue-500/30">
+                    0 Institutions
+                </span>
+            </div>
+            <div class="flex-1 w-full rounded-xl overflow-hidden relative">
+                <div id="leafletMap"></div>
             </div>
         </section>
     </main>
 
-    <!-- COMPARISON MODAL -->
-    <div id="compareModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-code-compare text-blue-400"></i> Institution Comparison Matrix
+    <!-- COMMUNITY CONTRIBUTION MODAL (Save live records to Firestore) -->
+    <div id="addModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-edurank-card border border-edurank-border p-5 md:p-6 rounded-2xl max-w-md w-full space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-edurank-border pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-school text-blue-400"></i> Submit Institution Data
                 </h3>
-                <button id="closeCompareBtn" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button id="closeAddModalBtn" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
             </div>
-            <div id="compareTableContainer" class="overflow-x-auto"></div>
+
+            <div class="space-y-3 text-xs md:text-sm">
+                <div>
+                    <label class="block text-gray-400 mb-1 font-medium">Institution Name *</label>
+                    <input type="text" id="formName" placeholder="e.g. Apex International Academy" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">City / Region *</label>
+                        <input type="text" id="formCity" placeholder="Kathmandu" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">Curriculum</label>
+                        <input type="text" id="formCurriculum" placeholder="A-Levels / National" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">Annual Fee ($) *</label>
+                        <input type="number" id="formFee" placeholder="2500" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">Avg Class Size</label>
+                        <input type="number" id="formClass" placeholder="25" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">Latitude (GPS)</label>
+                        <input type="number" step="any" id="formLat" placeholder="27.7172" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 mb-1 font-medium">Longitude (GPS)</label>
+                        <input type="number" step="any" id="formLng" placeholder="85.3240" class="w-full bg-slate-900 border border-edurank-border rounded-xl p-2.5 text-white outline-none focus:border-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-edurank-border">
+                <button id="cancelModalBtn" class="bg-slate-700 hover:bg-slate-600 text-gray-200 px-4 py-2 rounded-xl text-xs font-semibold transition">Cancel</button>
+                <button id="submitSchoolBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-lg shadow-blue-500/20">Save Institution</button>
+            </div>
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- APPLICATION JAVASCRIPT -->
     <script>
-        // Sample Dataset (Global & Local Nepal Data)
-        const schoolData = [
-            {
-                id: "ullens",
-                name: "Ullens School",
-                country: "Nepal",
-                city: "Kathmandu (Budhanilkantha Rd)",
-                level: "Primary/Secondary",
-                rank: 1,
-                rating: 4.8,
-                tuitionUSD: 3200,
-                tuitionLabel: "Rs. 4.2L / yr",
-                avgClassSize: 24,
-                ratio: "1:8",
-                curriculum: "IB / National",
-                lat: 27.7651,
-                lng: 85.3562,
-                address: "Budhanilkantha Sadak, Kathmandu",
-                tags: ["IB Diploma", "Extracurriculars", "Transport"]
-            },
-            {
-                id: "st_joseph",
-                name: "St. Joseph English Secondary School",
-                country: "Nepal",
-                city: "Kathmandu (Golfutar)",
-                level: "Primary/Secondary",
-                rank: 4,
-                rating: 4.5,
-                tuitionUSD: 1200,
-                tuitionLabel: "Rs. 1.6L / yr",
-                avgClassSize: 32,
-                ratio: "1:15",
-                curriculum: "National Board",
-                lat: 27.7485,
-                lng: 85.3521,
-                address: "Golfutar Main Rd, Kathmandu",
-                tags: ["Affordable", "Community Focused"]
-            },
-            {
-                id: "samyak",
-                name: "Samyak School",
-                country: "Nepal",
-                city: "Kathmandu",
-                level: "Primary/Secondary",
-                rank: 6,
-                rating: 5.0,
-                tuitionUSD: 1500,
-                tuitionLabel: "Rs. 2.0L / yr",
-                avgClassSize: 20,
-                ratio: "1:10",
-                curriculum: "Balanced Holistic",
-                lat: 27.7510,
-                lng: 85.3580,
-                address: "Budhanilkantha Region, Kathmandu",
-                tags: ["Small Class Size", "5.0 Rating"]
-            },
-            {
-                id: "fairyland",
-                name: "Fairyland International School",
-                country: "Nepal",
-                city: "Kathmandu",
-                level: "Primary/Secondary",
-                rank: 8,
-                rating: 4.3,
-                tuitionUSD: 1100,
-                tuitionLabel: "Rs. 1.4L / yr",
-                avgClassSize: 28,
-                ratio: "1:14",
-                curriculum: "National Board",
-                lat: 27.7560,
-                lng: 85.3610,
-                address: "Budhanilkantha Area, Kathmandu",
-                tags: ["Foundational", "Accessible"]
-            },
-            {
-                id: "mit",
-                name: "Massachusetts Institute of Technology (MIT)",
-                country: "USA",
-                city: "Cambridge, MA",
-                level: "University",
-                rank: 1,
-                rating: 4.9,
-                tuitionUSD: 58000,
-                tuitionLabel: "$58,000 / yr",
-                avgClassSize: 18,
-                ratio: "1:3",
-                curriculum: "STEM / Research",
-                lat: 42.3601,
-                lng: -71.0942,
-                address: "77 Massachusetts Ave, Cambridge, USA",
-                tags: ["World #1 Tech", "Full Financial Aid"]
-            },
-            {
-                id: "oxford",
-                name: "University of Oxford",
-                country: "UK",
-                city: "Oxford",
-                level: "University",
-                rank: 2,
-                rating: 4.9,
-                tuitionUSD: 44000,
-                tuitionLabel: "£35,000 / yr",
-                avgClassSize: 12,
-                ratio: "1:5",
-                curriculum: "Tutorial System",
-                lat: 51.7548,
-                lng: -1.2544,
-                address: "Oxford OX1 2JD, United Kingdom",
-                tags: ["Historic", "Global Elite"]
+        // ----------------------------------------------------
+        // 1. FREE FIREBASE CONFIGURATION (Replace values when ready)
+        // ----------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+
+        let db = null;
+        let isFirebaseActive = false;
+
+        try {
+            if (firebaseConfig.apiKey !== "YOUR_FIREBASE_API_KEY") {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                isFirebaseActive = true;
             }
+        } catch (err) {
+            console.warn("Firebase not configured yet. Running in offline fallback mode.", err);
+        }
+
+        // ----------------------------------------------------
+        // 2. INITIAL SEED / FALLBACK DATA (100% Free Local Dataset)
+        // ----------------------------------------------------
+        let schools = [
+            { id: "1", name: "Kathmandu International School", city: "Kathmandu", curriculum: "IB Diploma / A-Levels", fee: 3200, classSize: 22, rating: 4.8, lat: 27.7172, lng: 85.3240 },
+            { id: "2", name: "Apex Model College", city: "Lalitpur", curriculum: "National Board", fee: 1400, classSize: 32, rating: 4.5, lat: 27.6710, lng: 85.3120 },
+            { id: "3", name: "Himalayan Science Academy", city: "Bhaktapur", curriculum: "A-Levels", fee: 2100, classSize: 25, rating: 4.6, lat: 27.6710, lng: 85.4298 },
+            { id: "4", name: "Valley Public School", city: "Kathmandu", curriculum: "National Board", fee: 950, classSize: 38, rating: 4.2, lat: 27.7300, lng: 85.3400 }
         ];
 
-        let compareList = [];
-        let map, markers = [];
+        let leafletMap = null;
+        let mapMarkers = [];
 
-        // DOM Elements
-        const schoolListEl = document.getElementById('schoolList');
-        const searchInput = document.getElementById('searchInput');
-        const countryFilter = document.getElementById('countryFilter');
-        const levelFilter = document.getElementById('levelFilter');
-        const feeSlider = document.getElementById('feeSlider');
-        const maxFeeDisplay = document.getElementById('maxFeeDisplay');
-        const classSlider = document.getElementById('classSlider');
-        const maxClassDisplay = document.getElementById('maxClassDisplay');
-        const sortBySelect = document.getElementById('sortBySelect');
-        const resultCount = document.getElementById('resultCount');
-        const compareCount = document.getElementById('compareCount');
-        const compareModal = document.getElementById('compareModal');
-        const openCompareBtn = document.getElementById('openCompareBtn');
-        const closeCompareBtn = document.getElementById('closeCompareBtn');
-        const compareTableContainer = document.getElementById('compareTableContainer');
-
+        // ----------------------------------------------------
+        // 3. INITIALIZATION & LIFECYCLE
+        // ----------------------------------------------------
         window.addEventListener('DOMContentLoaded', () => {
-            initMap();
-            renderSchools();
-            setupEvents();
+            initLeafletMap();
+            setupEventListeners();
+
+            if (isFirebaseActive && db) {
+                listenToFirestore();
+            } else {
+                renderUI();
+            }
         });
 
-        function initMap() {
-            // Default center around Kathmandu Valley
-            map = L.map('map').setView([27.755, 85.355], 12);
+        // Initialize Free Leaflet Map
+        function initLeafletMap() {
+            leafletMap = L.map('leafletMap').setView([27.7172, 85.3240], 12);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap'
-            }).addTo(map);
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(leafletMap);
         }
 
-        function updateMapPins(filteredData) {
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-
-            if (filteredData.length === 0) return;
-
-            const bounds = [];
-            filteredData.forEach(item => {
-                const marker = L.marker([item.lat, item.lng]).addTo(map)
-                    .bindPopup(`<b>${item.name}</b><br>${item.city}<br>Rank #${item.rank}`);
-                markers.push(marker);
-                bounds.push([item.lat, item.lng]);
+        // Real-time Firestore Sync (Free Tier)
+        function listenToFirestore() {
+            db.collection("schools").onSnapshot((snapshot) => {
+                const liveList = [];
+                snapshot.forEach((doc) => {
+                    liveList.push({ id: doc.id, ...doc.data() });
+                });
+                if (liveList.length > 0) schools = liveList;
+                renderUI();
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                renderUI();
             });
-
-            if (bounds.length > 0) {
-                map.fitBounds(bounds, { padding: [30, 30] });
-            }
         }
 
-        function renderSchools() {
-            const query = searchInput.value.toLowerCase();
-            const selectedCountry = countryFilter.value;
-            const selectedLevel = levelFilter.value;
-            const maxFee = parseInt(feeSlider.value);
-            const maxClass = parseInt(classSlider.value);
-            const sortBy = sortBySelect.value;
+        // ----------------------------------------------------
+        // 4. RENDER UI & MAP PINS
+        // ----------------------------------------------------
+        function renderUI() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const maxFee = parseInt(document.getElementById('feeSlider').value, 10);
+            const maxClass = parseInt(document.getElementById('classSlider').value, 10);
 
-            let filtered = schoolData.filter(s => {
-                const matchesQuery = s.name.toLowerCase().includes(query) || s.city.toLowerCase().includes(query) || s.curriculum.toLowerCase().includes(query);
-                const matchesCountry = selectedCountry === 'ALL' || s.country === selectedCountry;
-                const matchesLevel = selectedLevel === 'ALL' || s.level === selectedLevel;
-                const matchesFee = s.tuitionUSD <= maxFee;
-                const matchesClass = s.avgClassSize <= maxClass;
-                return matchesQuery && matchesCountry && matchesLevel && matchesFee && matchesClass;
+            const filtered = schools.filter(s => {
+                const matchesText = (s.name || '').toLowerCase().includes(query) || 
+                                    (s.city || '').toLowerCase().includes(query) || 
+                                    (s.curriculum || '').toLowerCase().includes(query);
+                const matchesFee = (s.fee || 0) <= maxFee;
+                const matchesClass = (s.classSize || 0) <= maxClass;
+                return matchesText && matchesFee && matchesClass;
             });
 
-            // Sorting
-            filtered.sort((a, b) => {
-                if (sortBy === 'rank') return a.rank - b.rank;
-                if (sortBy === 'feeAsc') return a.tuitionUSD - b.tuitionUSD;
-                if (sortBy === 'feeDesc') return b.tuitionUSD - a.tuitionUSD;
-                if (sortBy === 'rating') return b.rating - a.rating;
-            });
+            const listContainer = document.getElementById('schoolList');
+            listContainer.innerHTML = '';
 
-            resultCount.innerText = filtered.length;
-            schoolListEl.innerHTML = '';
+            document.getElementById('schoolCountBadge').innerText = `${filtered.length} Institutions`;
+
+            // Clear map pins
+            mapMarkers.forEach(m => leafletMap.removeLayer(m));
+            mapMarkers = [];
 
             if (filtered.length === 0) {
-                schoolListEl.innerHTML = `
-                    <div class="bg-slate-800 p-8 rounded-2xl text-center text-gray-400 border border-slate-700">
-                        <i class="fa-solid fa-school-circle-exclamation text-3xl mb-2 text-yellow-500"></i>
-                        <p class="text-sm font-medium">No institutions match your budget or filter parameters.</p>
-                    </div>`;
-                updateMapPins([]);
+                listContainer.innerHTML = `
+                    <div class="bg-edurank-card border border-edurank-border p-8 rounded-2xl text-center space-y-2">
+                        <i class="fa-solid fa-building-circle-exclamation text-3xl text-gray-500"></i>
+                        <p class="text-sm text-gray-400">No institutions match your search criteria.</p>
+                    </div>
+                `;
                 return;
             }
 
             filtered.forEach(s => {
-                const isSelected = compareList.includes(s.id);
+                // Card UI
                 const card = document.createElement('div');
-                card.className = "bg-slate-800 p-4 rounded-2xl border border-slate-700 hover:border-slate-500 transition space-y-3";
+                card.className = "bg-edurank-card border border-edurank-border hover:border-blue-500/50 p-4 rounded-2xl transition duration-200 space-y-3 shadow-sm hover:shadow-md";
                 card.innerHTML = `
                     <div class="flex justify-between items-start gap-2">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded bg-blue-900/50 text-blue-400 border border-blue-800 text-[10px] font-bold">Rank #${s.rank}</span>
-                                <span class="text-xs text-gray-400"><i class="fa-solid fa-location-dot text-red-400 mr-1"></i>${s.city}, ${s.country}</span>
-                            </div>
-                            <h3 class="text-base font-bold text-white mt-1">${s.name}</h3>
+                            <h3 class="font-bold text-white text-base md:text-lg leading-snug">${escapeHtml(s.name)}</h3>
+                            <span class="text-xs text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                <i class="fa-solid fa-location-dot text-red-400"></i> ${escapeHtml(s.city || 'Unknown')}
+                                <span class="text-gray-600">•</span>
+                                <span class="text-blue-400">${escapeHtml(s.curriculum || 'General')}</span>
+                            </span>
                         </div>
-                        <div class="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2 py-1 rounded-lg text-xs font-bold border border-amber-500/20">
-                            <i class="fa-solid fa-star text-xs"></i> ${s.rating}
-                        </div>
+                        <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap">
+                            $${(s.fee || 0).toLocaleString()} / yr
+                        </span>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 text-xs bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/50">
-                        <div>
-                            <span class="text-gray-400 block text-[10px]">Annual Fee</span>
-                            <span class="text-emerald-400 font-bold">${s.tuitionLabel}</span>
+                    <div class="grid grid-cols-2 gap-2 pt-2 border-t border-edurank-border/60 text-xs text-gray-300">
+                        <div class="flex items-center gap-2 bg-slate-900/40 p-2 rounded-xl">
+                            <i class="fa-solid fa-users text-emerald-400"></i>
+                            <span>Avg Class: <strong>${s.classSize || 'N/A'}</strong></span>
                         </div>
-                        <div>
-                            <span class="text-gray-400 block text-[10px]">Avg Class Size</span>
-                            <span class="text-gray-200 font-semibold">${s.avgClassSize} Students</span>
+                        <div class="flex items-center gap-2 bg-slate-900/40 p-2 rounded-xl">
+                            <i class="fa-solid fa-star text-amber-400"></i>
+                            <span>Rating: <strong>${s.rating || '4.5'} / 5</strong></span>
                         </div>
-                        <div>
-                            <span class="text-gray-400 block text-[10px]">Faculty Ratio</span>
-                            <span class="text-blue-300 font-semibold">${s.ratio}</span>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center justify-between pt-1">
-                        <div class="flex gap-1.5 flex-wrap">
-                            ${s.tags.map(t => `<span class="px-2 py-0.5 rounded bg-slate-700 text-gray-300 text-[10px]">${t}</span>`).join('')}
-                        </div>
-                        <button onclick="toggleCompare('${s.id}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isSelected ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-gray-200'}">
-                            ${isSelected ? '<i class="fa-solid fa-check mr-1"></i> Added' : '<i class="fa-solid fa-plus mr-1"></i> Compare'}
-                        </button>
                     </div>
                 `;
-                schoolListEl.appendChild(card);
-            });
+                listContainer.appendChild(card);
 
-            updateMapPins(filtered);
+                // Leaflet Map Pin
+                if (s.lat && s.lng) {
+                    const marker = L.marker([s.lat, s.lng]).addTo(leafletMap);
+                    marker.bindPopup(`
+                        <div class="p-1 font-sans">
+                            <b class="text-sm">${escapeHtml(s.name)}</b><br/>
+                            <span class="text-xs text-blue-600 font-bold">$${(s.fee || 0).toLocaleString()} / year</span><br/>
+                            <span class="text-xs text-gray-600">${escapeHtml(s.city)}</span>
+                        </div>
+                    `);
+                    mapMarkers.push(marker);
+                }
+            });
         }
 
-        function setupEvents() {
-            searchInput.addEventListener('input', renderSchools);
-            countryFilter.addEventListener('change', renderSchools);
-            levelFilter.addEventListener('change', renderSchools);
-            sortBySelect.addEventListener('change', renderSchools);
-
-            feeSlider.addEventListener('input', (e) => {
-                maxFeeDisplay.innerText = `$${parseInt(e.target.value).toLocaleString()}`;
-                renderSchools();
+        // ----------------------------------------------------
+        // 5. EVENT LISTENERS & MODAL HANDLERS
+        // ----------------------------------------------------
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', renderUI);
+            
+            document.getElementById('feeSlider').addEventListener('input', (e) => {
+                document.getElementById('feeDisplay').innerText = `$${parseInt(e.target.value, 10).toLocaleString()}`;
+                renderUI();
             });
 
-            classSlider.addEventListener('input', (e) => {
-                maxClassDisplay.innerText = `${e.target.value} Students`;
-                renderSchools();
+            document.getElementById('classSlider').addEventListener('input', (e) => {
+                document.getElementById('classDisplay').innerText = `${e.target.value} Students`;
+                renderUI();
             });
 
-            document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-                searchInput.value = '';
-                countryFilter.value = 'ALL';
-                levelFilter.value = 'ALL';
-                feeSlider.value = 60000;
-                classSlider.value = 45;
-                maxFeeDisplay.innerText = '$60,000 / Rs. 60L';
-                maxClassDisplay.innerText = '45 Students';
-                renderSchools();
-            });
+            const addModal = document.getElementById('addModal');
+            document.getElementById('openAddModalBtn').addEventListener('click', () => addModal.classList.remove('hidden'));
+            document.getElementById('closeAddModalBtn').addEventListener('click', () => addModal.classList.add('hidden'));
+            document.getElementById('cancelModalBtn').addEventListener('click', () => addModal.classList.add('hidden'));
 
-            openCompareBtn.addEventListener('click', renderCompareMatrix);
-            closeCompareBtn.addEventListener('click', () => compareModal.classList.add('hidden'));
-        }
+            // Submit Form Data
+            document.getElementById('submitSchoolBtn').addEventListener('click', async () => {
+                const name = document.getElementById('formName').value.trim();
+                const city = document.getElementById('formCity').value.trim();
+                const curriculum = document.getElementById('formCurriculum').value.trim() || "National Board";
+                const fee = parseInt(document.getElementById('formFee').value, 10) || 0;
+                const classSize = parseInt(document.getElementById('formClass').value, 10) || 25;
+                const lat = parseFloat(document.getElementById('formLat').value) || 27.7172;
+                const lng = parseFloat(document.getElementById('formLng').value) || 85.3240;
 
-        window.toggleCompare = function(id) {
-            if (compareList.includes(id)) {
-                compareList = compareList.filter(item => item !== id);
-            } else {
-                if (compareList.length >= 3) {
-                    alert("You can compare up to 3 institutions at once.");
+                if (!name || !city) {
+                    alert("Please provide at least an Institution Name and City.");
                     return;
                 }
-                compareList.push(id);
-            }
-            compareCount.innerText = compareList.length;
-            renderSchools();
+
+                const newSchoolObj = {
+                    name,
+                    city,
+                    curriculum,
+                    fee,
+                    classSize,
+                    rating: 4.5,
+                    lat,
+                    lng,
+                    createdAt: new Date().toISOString()
+                };
+
+                if (isFirebaseActive && db) {
+                    try {
+                        await db.collection("schools").add(newSchoolObj);
+                        alert("Saved to global real-time Firebase database!");
+                    } catch (err) {
+                        alert("Error saving to Firebase: " + err.message);
+                    }
+                } else {
+                    // Local memory push fallback
+                    newSchoolObj.id = Date.now().toString();
+                    schools.unshift(newSchoolObj);
+                    renderUI();
+                    alert("Institution added in local preview mode!");
+                }
+
+                // Reset Form
+                document.getElementById('formName').value = '';
+                document.getElementById('formCity').value = '';
+                document.getElementById('formCurriculum').value = '';
+                document.getElementById('formFee').value = '';
+                document.getElementById('formClass').value = '';
+                addModal.classList.add('hidden');
+            });
         }
 
-        function renderCompareMatrix() {
-            if (compareList.length === 0) {
-                alert("Select at least one institution using the '+ Compare' button first.");
-                return;
-            }
-
-            const selected = schoolData.filter(s => compareList.includes(s.id));
-
-            let tableHTML = `
-                <table class="w-full text-xs text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-700 text-gray-400">
-                            <th class="p-3 bg-slate-900/50">Feature</th>
-                            ${selected.map(s => `<th class="p-3 text-white font-bold text-sm bg-slate-900/50">${s.name}</th>`).join('')}
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/50 text-gray-300">
-                        <tr>
-                            <td class="p-3 font-semibold text-gray-400">Country / City</td>
-                            ${selected.map(s => `<td class="p-3">${s.city}, ${s.country}</td>`).join('')}
-                        </tr>
-                        <tr>
-                            <td class="p-3 font-semibold text-gray-400">Rank & Rating</td>
-                            ${selected.map(s => `<td class="p-3 font-bold text-amber-400">Rank #${s.rank} (${s.rating} ★)</td>`).join('')}
-                        </tr>
-                        <tr>
-                            <td class="p-3 font-semibold text-gray-400">Tuition Fee</td>
-                            ${selected.map(s => `<td class="p-3 font-bold text-emerald-400">${s.tuitionLabel}</td>`).join('')}
-                        </tr>
-                        <tr>
-                            <td class="p-3 font-semibold text-gray-400">Class Density</td>
-                            ${selected.map(s => `<td class="p-3">${s.avgClassSize} students / section</td>`).join('')}
-                        </tr>
-                        <tr>
-                            <td class="p-3 font-semibold text-gray-400">Curriculum</td>
-                            ${selected.map(s => `<td class="p-3">${s.curriculum}</td>`).join('')}
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-
-            compareTableContainer.innerHTML = tableHTML;
-            compareModal.classList.remove('hidden');
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
